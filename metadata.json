@@ -1,0 +1,5 @@
+{
+  "name": "DataGuard AI Policy Architect",
+  "description": "An intelligent interface for predicting and configuring enterprise data protection policies using Generative AI.",
+  "requestFramePermissions": []
+}
