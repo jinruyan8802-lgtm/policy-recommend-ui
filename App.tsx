@@ -3,18 +3,17 @@ import { PolicyModal } from './components/PolicyModal';
 import { getPolicyRecommendation } from './services/geminiService';
 import { PolicyConfig, AppState } from './types';
 import { 
-  Bot, 
+  Braces, 
   Sparkles, 
   LayoutGrid, 
-  HardDrive, 
   ShieldCheck, 
   Activity,
   ChevronRight,
-  Search,
-  Settings
+  Settings,
+  ArrowRightLeft
 } from 'lucide-react';
 
-// Default mock policy to show initially or as fallback
+// Default mock policy to show initially
 const DEFAULT_POLICY: PolicyConfig = {
   storageName: "dpswl057.drm.lab.emc.com",
   storageUnit: "jinru-app-dpswl098-d104a",
@@ -33,19 +32,79 @@ const DEFAULT_POLICY: PolicyConfig = {
   }
 };
 
+const DEFAULT_CONTEXT = `{
+  "assetType": "VMWARE_VIRTUAL_MACHINE",
+  "id": "0b21f24c-8bdb-4aaa-8e1b-57c68c03ce53",
+  "name": "auto create test policy 2025-12-03 15:39:01.949867",
+  "description": null,
+  "purpose": "CENTRALIZED",
+  "disabled": false,
+  "criticality": 2,
+  "createdAt": "2025-12-03T07:37:48.686Z",
+  "updatedAt": "2025-12-03T07:37:48.686Z",
+  "objectives": [
+    {
+      "id": "a90b0477-4702-5f07-bf85-1074197f3fe4",
+      "type": "BACKUP",
+      "operations": [
+        {
+          "id": "df4f6583-5daf-50a0-b7c9-61c73973e798",
+          "backupLevel": "FULL",
+          "triggerType": "ON_SCHEDULE",
+          "schedule": {
+            "recurrence": {
+              "type": "DAILY"
+            },
+            "window": {
+              "startTime": "2025-12-03T14:17:00Z",
+              "duration": "PT7H"
+            }
+          },
+          "actionOnWindowExceeded": [
+            {
+              "state": "QUEUED",
+              "action": "CANCEL_WITH_ALERT"
+            }
+          ]
+        }
+      ],
+      "target": {
+        "storageContainerId": "3759b25d-ea57-4634-8e54-6cb6c41b43c0",
+        "storageTargetId": "ff3a378c-5bff-4084-b427-62cc6678b6e8"
+      },
+      "retentions": [
+        {
+          "id": "d9c088f8-4716-5859-b3c4-d4a82b3cac0b",
+          "time": [
+            {
+              "unitValue": 11,
+              "unitType": "DAY",
+              "type": "RETENTION"
+            }
+          ]
+        }
+      ],
+      "config": {
+        "dataConsistency": "CRASH_CONSISTENT",
+        "backupMechanism": "VADP"
+      }
+    }
+  ]
+}`;
+
 export default function App() {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
   const [policy, setPolicy] = useState<PolicyConfig>(DEFAULT_POLICY);
-  const [prompt, setPrompt] = useState("");
+  const [contextJson, setContextJson] = useState(DEFAULT_CONTEXT);
   const [showModal, setShowModal] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handlePredict = async () => {
-    if (!prompt.trim()) return;
+    if (!contextJson.trim()) return;
     
     setAppState(AppState.ANALYZING);
     try {
-      const recommendedPolicy = await getPolicyRecommendation(prompt);
+      const recommendedPolicy = await getPolicyRecommendation(contextJson);
       setPolicy(recommendedPolicy);
       setAppState(AppState.RECOMMENDING);
       setShowModal(true);
@@ -58,7 +117,6 @@ export default function App() {
   const handleApply = () => {
     setShowModal(false);
     setAppState(AppState.IDLE);
-    setPrompt("");
     // In a real app, this would save to backend
     alert("Policy Configuration Saved Successfully.");
   };
@@ -67,14 +125,6 @@ export default function App() {
     setAppState(AppState.IDLE);
     setShowModal(false);
   }
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if(inputRef.current) {
-      inputRef.current.style.height = "auto";
-      inputRef.current.style.height = inputRef.current.scrollHeight + "px";
-    }
-  }, [prompt]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f4f5f7]">
@@ -122,59 +172,62 @@ export default function App() {
         {/* Workspace */}
         <div className="flex-1 flex flex-col relative overflow-y-auto">
           
-          <div className="p-8 max-w-5xl mx-auto w-full">
+          <div className="p-8 max-w-6xl mx-auto w-full">
             
             {/* Input Section */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-8 mb-8">
-              <div className="flex items-start gap-4 mb-6">
-                <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-lg">
-                  <Bot className="text-white" size={32} />
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-8 flex flex-col gap-4">
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-gray-100 rounded-md">
+                  <Braces className="text-gray-600" size={24} />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">AI Policy Architect</h1>
-                  <p className="text-gray-500 mt-1">
-                    Describe your data protection requirements. Our engine will analyze infrastructure availability and compliance rules to recommend the optimal configuration.
+                  <h1 className="text-xl font-bold text-gray-900">Backend Context API</h1>
+                  <p className="text-gray-500 text-sm mt-1">
+                    Provide the raw JSON context from the backend API. The AI engine will parse the schema, resolve IDs to simulated asset names, and map configurations to the UI.
                   </p>
                 </div>
               </div>
 
-              <div className="relative">
+              <div className="relative mt-2">
+                <div className="absolute top-0 right-0 p-2 bg-gray-800 text-gray-400 text-xs rounded-tr-md rounded-bl-md font-mono">
+                  JSON / Python Dict
+                </div>
                 <textarea
                   ref={inputRef}
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="E.g., I need a high-performance backup for my production Oracle databases. They are 500GB in size. We need aggressive retention for 7 years for compliance, and the backup window is tight (2am to 4am)."
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg p-4 text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all min-h-[120px] resize-none text-base shadow-inner"
+                  value={contextJson}
+                  onChange={(e) => setContextJson(e.target.value)}
+                  className="w-full bg-[#1e1e1e] border border-gray-700 rounded-md p-4 text-green-400 font-mono text-sm leading-relaxed focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all h-[400px] resize-y shadow-inner scrollbar-thin scrollbar-thumb-gray-600"
+                  spellCheck="false"
                   disabled={appState === AppState.ANALYZING}
                 />
-                
-                <div className="absolute bottom-4 right-4 flex gap-2">
-                   {appState === AppState.ERROR && (
-                     <span className="text-red-500 text-sm flex items-center px-3">Failed to generate. Try again.</span>
-                   )}
-                   <button
-                    onClick={handlePredict}
-                    disabled={!prompt || appState === AppState.ANALYZING}
-                    className={`
-                      px-6 py-2 rounded-md font-medium text-white shadow-md transition-all flex items-center gap-2
-                      ${!prompt || appState === AppState.ANALYZING 
-                        ? 'bg-gray-300 cursor-not-allowed' 
-                        : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg active:transform active:scale-95'}
-                    `}
-                  >
-                    {appState === AppState.ANALYZING ? (
-                      <>
-                        <Activity className="animate-spin" size={18} />
-                        Analyzing Infrastructure...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles size={18} />
-                        Generate Recommendation
-                      </>
-                    )}
-                  </button>
-                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                 {appState === AppState.ERROR && (
+                   <span className="text-red-500 text-sm flex items-center px-3 mr-auto">Error processing context. Check JSON format.</span>
+                 )}
+                 <button
+                  onClick={handlePredict}
+                  disabled={!contextJson || appState === AppState.ANALYZING}
+                  className={`
+                    px-6 py-2 rounded-md font-medium text-white shadow-md transition-all flex items-center gap-2
+                    ${!contextJson || appState === AppState.ANALYZING 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg active:transform active:scale-95'}
+                  `}
+                >
+                  {appState === AppState.ANALYZING ? (
+                    <>
+                      <Activity className="animate-spin" size={18} />
+                      Mapping Configuration...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRightLeft size={18} />
+                      Analyze & Recommend Policy
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 

@@ -30,19 +30,28 @@ const policySchema: Schema = {
   required: ["storageName", "storageUnit", "spaceUsedPercent", "totalSpaceGB", "schedule"]
 };
 
-export const getPolicyRecommendation = async (userPrompt: string): Promise<PolicyConfig> => {
+export const getPolicyRecommendation = async (jsonContext: string): Promise<PolicyConfig> => {
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `You are an expert Data Protection Administrator. 
-      Generate a realistic Data Protection Policy configuration JSON based on the user's requirement. 
-      Use enterprise-sounding server names (like 'dpswl057.drm.lab.emc.com') and realistic values.
+      contents: `You are a Middleware Configuration Mapper.
       
-      User Requirement: "${userPrompt}"`,
+      Task:
+      1. Analyze the provided "Raw Backend Context" (which may be JSON or a Python dictionary).
+      2. Map the technical values to the frontend 'PolicyConfig' schema.
+      
+      Specific Mapping Rules:
+      - IDs to Names: The raw context contains UUIDs (like storageContainerId). Since you don't have the database, you MUST generate realistic Enterprise FQDNs or naming conventions for these IDs (e.g., 'storage-pool-01.corp.net').
+      - Schedule: Convert ISO timestamps and durations (e.g., 'PT7H') into user-friendly 'windowStart' (e.g., '2:15 PM') and 'windowEnd'.
+      - Retention: Calculate total retention days from the unit value/type.
+      - Description: Generate a natural language summary of what the policy does based on the raw flags.
+      
+      Raw Backend Context:
+      ${jsonContext}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: policySchema,
-        systemInstruction: "You are a backend configuration engine for an enterprise backup solution. Your goal is to translate business intent into technical configuration settings."
+        systemInstruction: "You are a backend configuration engine for an enterprise backup solution. Your goal is to translate raw API responses into user-friendly configuration settings."
       }
     });
 
